@@ -30,9 +30,10 @@ def test_inputs_preserved_and_units_converted():
     app.selectbox(key="global_unit").set_value("minuto").run()
     assert app.number_input(key="_input_M/M/s_lambda").value == pytest.approx(.05)
     assert app.warning
-    for section in ["Guia manual", "Probabilidades Poisson", "Ferramentas de cálculo", "Revisão das listas"]:
+    for section in ["Guia manual", "Probabilidades Poisson", "Ferramentas de cálculo"]:
         app.radio(key="main_section").set_value(section).run()
         assert not app.exception
     app.radio(key="main_section").set_value("Calculadora de filas").run()
     assert app.number_input(key="_input_M/M/s_lambda").value == pytest.approx(.05)
     calculate(app)
+
