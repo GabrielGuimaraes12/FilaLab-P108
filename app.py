@@ -55,15 +55,10 @@ with st.sidebar:
     st.markdown("### Navegação")
     st.caption("1. Escolha o cenário · 2. Informe os dados · 3. Analise o resultado")
     st.divider()
-    section = st.radio("Área", ["Calculadora de filas", "Guia manual", "Probabilidades Poisson", "Ferramentas de cálculo", "Revisão das listas"], key="main_section")
+    section = st.radio("Área", ["Calculadora de filas", "Guia manual", "Probabilidades Poisson", "Ferramentas de cálculo"], key="main_section")
     unit = st.selectbox("Unidade de tempo do modelo", ["hora", "minuto", "dia", "segundo"], key="global_unit", on_change=change_unit, help="Todas as taxas dos modelos devem se referir à mesma unidade de tempo.")
     st.info("**Dica:** λ é a taxa de chegada; μ é a taxa de atendimento **de cada servidor**.")
     st.caption("Nos modelos com população finita, λ corresponde à taxa de cada fonte que está disponível.")
-
-if section == "Revisão das listas":
-    report = Path(__file__).with_name("REVISAO_P108.md")
-    st.markdown(report.read_text(encoding="utf-8"))
-    st.stop()
 
 if section == "Guia manual":
     render_guide(unit)
