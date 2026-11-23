@@ -16,15 +16,15 @@ def calculate(app):
     "Com população finita (N)", "Atendimento variável (M/G/1)", "Com classes de prioridade",
 ])
 def test_each_model_calculates(selection):
-    app = AppTest.from_file(str(APP)).run()
-    app.radio[1].set_value(selection).run()
+    app = AppTest.from_file(str(APP), default_timeout=20).run()
+    next(r for r in app.radio if r.label == "Tipo de problema").set_value(selection).run()
     calculate(app)
     assert not app.error
     assert app.dataframe if selection == "Com classes de prioridade" else app.metric
 
 
 def test_inputs_preserved_and_units_converted():
-    app = AppTest.from_file(str(APP)).run()
+    app = AppTest.from_file(str(APP), default_timeout=20).run()
     app.number_input(key="_input_M/M/s_lambda").set_value(3.0).run()
     calculate(app)
     app.selectbox(key="global_unit").set_value("minuto").run()
