@@ -18,6 +18,12 @@ def calculate(app):
 def test_each_model_calculates(selection):
     app = AppTest.from_file(str(APP), default_timeout=20).run()
     next(r for r in app.radio if r.label == "Tipo de problema").set_value(selection).run()
+    if selection == "Atendimento variável (M/G/1)":
+        sigma = app.number_input(key="_input_M/G/1_sigma")
+        assert sigma.value is None
+        calculate(app)
+        assert "Informe o desvio-padrão" in app.error[0].value
+        app.number_input(key="_input_M/G/1_sigma").set_value(0.0).run()
     calculate(app)
     assert not app.error
     assert app.dataframe if selection == "Com classes de prioridade" else app.metric
@@ -37,3 +43,17 @@ def test_inputs_preserved_and_units_converted():
     assert app.number_input(key="_input_M/M/s_lambda").value == pytest.approx(.05)
     calculate(app)
 
+
+
+def test_priority_comparison_keeps_both_configurations():
+    app = AppTest.from_file(str(APP), default_timeout=20).run()
+    next(r for r in app.radio if r.label == "Tipo de problema").set_value("Com classes de prioridade").run()
+    calculate(app)
+    app.text_input[0].set_value("Equipe A").run()
+    next(b for b in app.button if b.label == "Salvar cenário atual").click().run()
+    app.number_input(key="_input_Prioridades M/M/s_s").set_value(2).run()
+    calculate(app)
+    app.text_input[0].set_value("Equipe B").run()
+    next(b for b in app.button if b.label == "Salvar cenário atual").click().run()
+    comparison = app.dataframe[1].value
+    assert set(zip(comparison["Cenário"], comparison["s"])) == {("Equipe A", 1), ("Equipe B", 2)}
