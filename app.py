@@ -1,6 +1,4 @@
 """FilaLab — interface orientada a problemas para teoria das filas (P108)."""
-from pathlib import Path
-
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -9,7 +7,7 @@ from engine import mg1, mm_s, mm_sk, mm_sn, priorities_m1
 from tools_page import render_tools
 from guide import render_guide, render_poisson
 from converters import convert_rate, convert_time
-from results_ui import render_extras
+from results_ui import render_extras, render_scenarios
 
 st.set_page_config(page_title="FilaLab | Otimização II", page_icon="📊", layout="wide")
 st.markdown("""
@@ -31,7 +29,7 @@ MODELS = {
     "Com capacidade máxima (K)": ("M/M/s/K", "O sistema comporta somente K pessoas, contando quem está em atendimento."),
     "Com população finita (N)": ("M/M/s/N", "Há N fontes que podem solicitar serviço, como máquinas sujeitas a falhas."),
     "Atendimento variável (M/G/1)": ("M/G/1", "Um servidor com tempo de serviço genérico. Informe o desvio-padrão do atendimento."),
-    "Com classes de prioridade": ("Prioridades M/M/1", "Servidores idênticos atendem classes por ordem de prioridade, com ou sem interrupção e retomada."),
+    "Com classes de prioridade": ("Prioridades M/M/s", "Servidores idênticos atendem classes por ordem de prioridade, com ou sem interrupção e retomada."),
 }
 
 st.markdown('<div class="hero"><span class="pill">P108 · Otimização II</span><h1>FilaLab</h1><p>Calculadora de filas e guia de fórmulas · v2.0</p></div>', unsafe_allow_html=True)
@@ -43,7 +41,7 @@ def change_unit():
         for field, value in fields.items():
             if field in ("lambda", "mu") or field.startswith("class_") and field != "class_count":
                 fields[field] = convert_rate(value, previous, current)
-            elif field == "sigma":
+            elif field == "sigma" and value is not None:
                 fields[field] = convert_time(value, previous, current)
         for field in ("lambda", "mu_rate", "mu_time", "sigma", *(f"class_{i}" for i in range(5))):
             st.session_state.pop(f"_input_{model_name}_{field}", None)
@@ -101,13 +99,17 @@ def numeric(field, label, default, *, min_value=0.0, step=0.25, fmt="%.10g", hel
     # Inicializar a cada vez que o widget reaparece; não reinicializar se já existe.
     if key not in st.session_state:
         st.session_state[key] = saved.get(field, default)
-    saved.setdefault(field, st.session_state[key])
+
     kwargs = {"min_value": min_value, "step": step, "format": fmt,
               "key": key, "help": help,
               "on_change": remember, "args": (field, key, transform)}
     if max_value is not None:
         kwargs["max_value"] = max_value
-    return st.number_input(label, **kwargs)
+    if default is None:
+        kwargs["value"] = None
+    value = st.number_input(label, **kwargs)
+    saved.setdefault(field, value)
+    return value
 
 def change_mode():
     remember("entry_mode", mode_key)
@@ -132,7 +134,7 @@ rate_mode = st.radio(
 mu_saved = saved.setdefault("mu", 3.0)
 a, b = st.columns(2)
 with a:
-    if model != "Prioridades M/M/1":
+    if model != "Prioridades M/M/s":
         lambda_value = numeric("lambda", f"Chegadas por {unit} (λ)", 2.0,
             help="Média de chegadas por unidade de tempo. Em M/M/s/N, taxa de cada fonte disponível.")
     else:
@@ -169,10 +171,10 @@ with b:
     N = numeric("N", "Número de fontes / população (N)", 10,
         min_value=1, max_value=1000, step=1, fmt="%d",
         help="Total de fontes que podem solicitar atendimento.") if model == "M/M/s/N" else None
-    sigma = numeric("sigma", f"Desvio-padrão do atendimento (σ, {unit})", 0.3333,
+    sigma = numeric("sigma", f"Desvio-padrão do atendimento (σ, {unit})", None,
         step=0.05, help="σ=0 representa tempo de atendimento constante.") if model == "M/G/1" else None
 
-if model == "Prioridades M/M/1":
+if model == "Prioridades M/M/s":
     s = numeric("s", "Servidores de prioridade (s)", 1, min_value=1, max_value=100, step=1, fmt="%d")
     st.markdown("**Chegadas por prioridade (1 = prioridade mais alta)**")
     count_key = f"_count_{model}"
@@ -199,7 +201,7 @@ st.caption(f"Taxas em clientes/{unit}. Tempos de espera em {unit}(s).")
 if model == "M/G/1":
     st.caption("Confira σ antes de calcular. A média sozinha não determina a espera. Use σ=0 apenas se o serviço for constante.")
 parameters_now = dict(lam=lambda_value, mu=mu, s=int(s), K=K, N=N, sigma=sigma)
-if model == "Prioridades M/M/1":
+if model == "Prioridades M/M/s":
     parameters_now.update(rates=rates, preemptive=preemptive)
 submitted = st.button("Calcular resultados", type="primary", use_container_width=True)
 
@@ -213,7 +215,7 @@ if submitted:
             raise ValueError("A capacidade total K deve ser maior ou igual ao número de servidores s.")
         if model == "M/M/s/N" and N < s:
             raise ValueError("A população N deve ser maior ou igual ao número de servidores s.")
-        if model == "Prioridades M/M/1":
+        if model == "Prioridades M/M/s":
             answer = priorities_m1(rates, mu, preemptive, int(s))
         elif model == "M/M/s":
             answer = mm_s(lambda_value, mu, int(s))
@@ -222,6 +224,8 @@ if submitted:
         elif model == "M/M/s/N":
             answer = mm_sn(lambda_value, mu, int(s), int(N))
         else:
+            if sigma is None:
+                raise ValueError("Informe o desvio-padrão do atendimento. Use 0 quando o serviço tem duração constante.")
             answer = mg1(lambda_value, mu, sigma)
         st.session_state.last_result = (model, answer, unit, parameters_now)
     except ValueError as exc:
@@ -235,12 +239,19 @@ if previous_model != model or result_unit != unit or parameters_now != parameter
 
 st.divider()
 st.markdown("### 3. Resultados e interpretação")
-if previous_model == "Prioridades M/M/1":
+if previous_model == "Prioridades M/M/s":
     df = pd.DataFrame(answer)
     st.dataframe(df.rename(columns={"classe": "Classe", "lambda": "λ", "W": "W", "Wq": "Wq", "L": "L", "Lq": "Lq"}), hide_index=True, use_container_width=True)
     st.plotly_chart(px.bar(df, x="classe", y="Wq", title="Espera média na fila por classe", labels={"classe": "Classe de prioridade", "Wq": f"Tempo ({result_unit})"}), use_container_width=True)
     st.caption("As métricas representam cada classe individualmente. Com retomada, Wq inclui o tempo de interrupção. Classes com λ=0 não têm observações.")
-    export = df.to_csv(index=False).encode("utf-8-sig")
+    rule = "Com retomada" if parameters["preemptive"] else "Sem interrupção"
+    render_scenarios("prioridade", [
+        {"Unidade": result_unit, "s": parameters["s"], "μ": parameters["mu"], "Regra": rule,
+         "Classe": row["classe"], "λ": row["lambda"], "Wq": row["Wq"], "W": row["W"],
+         "Lq": row["Lq"], "L": row["L"]}
+        for row in answer
+    ])
+    export = df.assign(unidade=result_unit, servidores=parameters["s"], mu=parameters["mu"], regra=rule).to_csv(index=False).encode("utf-8-sig")
 else:
     r = answer
     row1 = st.columns(4)
