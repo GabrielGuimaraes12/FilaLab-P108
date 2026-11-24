@@ -2,7 +2,7 @@
 import pandas as pd
 import streamlit as st
 
-from analysis_tools import arrival_wait, operating_cost, state_range, time_tail, two_technician_occupancy
+from analysis_tools import arrival_wait, finite_source_time_tail, operating_cost, state_range, time_tail, two_technician_occupancy
 
 
 def render_extras(result, unit, parameters):
@@ -42,12 +42,17 @@ def render_extras(result, unit, parameters):
                     low = low + r.servers if low else 0
                     high = high + r.servers if high is not None else None
                 st.metric("Probabilidade do intervalo", f"{state_range(r, low, high):.6%}")
+    tail = None
     if r.model == "M/M/s":
+        tail = time_tail
+    elif r.model == "M/M/s/N" and r.servers == 1 and r.effective_rate:
+        tail = finite_source_time_tail
+    if tail is not None:
         with st.expander("Probabilidade de exceder um tempo"):
             t = st.number_input(f"Tempo limite em {unit}(s)", min_value=0.0, value=0.5)
             a, b = st.columns(2)
-            a.metric("P(Wq > limite)", f"{time_tail(r, t):.6%}")
-            b.metric("P(W > limite)", f"{time_tail(r, t, total=True):.6%}")
+            a.metric("P(Wq > limite)", f"{tail(r, t):.6%}")
+            b.metric("P(W > limite)", f"{tail(r, t, total=True):.6%}")
     render_costs_and_scenarios(r, unit, parameters)
 
 
@@ -67,22 +72,24 @@ def render_costs_and_scenarios(r, unit, parameters):
         )
         st.metric("Custo esperado no período", f"R$ {cost:.4f}")
         st.caption("Compare valores calculados para a mesma duração física e os mesmos critérios de custo.")
+    render_scenarios("filas", [{
+        "Modelo": r.model, "Unidade": unit, "λ": r.lam, "μ": r.mu, "s": r.servers,
+        "K": parameters["K"], "N": parameters["N"], "σ": parameters["sigma"],
+        "L": r.L, "Lq": r.Lq, "W": r.W, "Wq": r.Wq, "R$ no período": cost, "Duração": duration,
+    }])
+
+
+def render_scenarios(group, rows):
     with st.expander("Comparar cenários da sessão"):
-        scenarios = st.session_state.setdefault("scenarios", {})
-        name = st.text_input("Nome do cenário", max_chars=60)
-        if st.button("Salvar cenário atual", disabled=not name.strip()):
-            scenarios[name.strip()] = {
-                "Cenário": name.strip(), "Modelo": r.model, "Unidade": unit,
-                "λ": r.lam, "μ": r.mu, "s": r.servers, "K": parameters["K"],
-                "N": parameters["N"], "σ": parameters["sigma"], "L": r.L, "Lq": r.Lq,
-                "W": r.W, "Wq": r.Wq, "R$ no período": cost, "Duração": duration,
-            }
+        scenarios = st.session_state.setdefault(f"scenarios_{group}", {})
+        name = st.text_input("Nome do cenário", max_chars=60).strip()
+        if st.button("Salvar cenário atual", disabled=not name):
+            scenarios[name] = [{"Cenário": name, **row} for row in rows]
         if scenarios:
-            frame = pd.DataFrame(scenarios.values())
+            frame = pd.DataFrame(row for scenario in scenarios.values() for row in scenario)
             st.dataframe(frame, hide_index=True)
             st.download_button("Baixar cenários em CSV", frame.to_csv(index=False).encode("utf-8-sig"), "filalab_cenarios.csv")
             remove = st.selectbox("Cenário para remover", list(scenarios))
             if st.button("Remover cenário"):
                 del scenarios[remove]
                 st.rerun()
-
