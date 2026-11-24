@@ -81,3 +81,13 @@ def test_erlang_equal_rates():
     r = mm_s(2, 2, 2)
     assert time_tail(r, 1, total=True) == pytest.approx(math.exp(-2)*(1+2/3))
 
+
+
+def test_finite_source_time_tail():
+    from analysis_tools import finite_source_time_tail
+    import math
+
+    r = mm_sn(1, 2, 1, 2)
+    assert finite_source_time_tail(r, 1) == pytest.approx(math.exp(-2) / 3)
+    assert finite_source_time_tail(r, 1, total=True) == pytest.approx(5*math.exp(-2) / 3)
+    assert finite_source_time_tail(r, 0, total=True) == pytest.approx(1)
