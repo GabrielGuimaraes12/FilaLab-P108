@@ -43,7 +43,7 @@ GUIDES = {
             r"\sigma=\frac{\sqrt{2L_q(1-\rho)-\rho^2}}{\lambda}",
         ],
     ),
-    "Prioridades M/M/1": (
+    "Prioridades M/M/s": (
         "Servidores idênticos, serviço exponencial com μ comum e chegadas Poisson por classe. A classe 1 tem maior prioridade. Exige Σλᵢ<sμ.",
         [
             r"R_i=\sum_{j=1}^i \lambda_j/(s\mu),\quad R_0=0,\quad D_i=(1-R_{i-1})(1-R_i)",
@@ -64,15 +64,26 @@ def render_guide(unit):
     st.subheader("Fórmulas")
     for formula in formulas:
         st.latex(formula)
-    if model != "Prioridades M/M/1":
+    if model == "Prioridades M/M/s":
+        st.caption("Λᵢ é a soma das taxas até a classe i, com Λ₀=0. C é Erlang C com o fluxo total. Na regra com retomada, calcule Lq(Λᵢ) usando M/M/s e a taxa acumulada.")
+    else:
         st.latex(r"L=\lambda_{ef}W,\quad L_q=\lambda_{ef}W_q,\quad W=W_q+1/\mu")
         st.caption("Sem bloqueio ou população finita, λ efetiva = λ. Para inverter a Lei de Little, divida o número médio pelo tempo correspondente. Em M/G/1, a raiz inversa precisa ser real e resultar em 0<ρ<1.")
+    if model == "M/M/s":
+        with st.expander("Fórmulas inversas para um servidor (M/M/1)"):
+            st.latex(r"\rho=\frac{2L_q}{\sqrt{L_q^2+4L_q}+L_q}\quad(L_q>0),\qquad W=W_q/\rho")
+            st.latex(r"\mu=\frac{\rho}{(1-\rho)W_q},\quad \lambda=\rho\mu,\quad \lambda=\frac{\mu^2 W_q}{1+\mu W_q}")
+            st.latex(r"P(X>k)=\rho^{k+1},\qquad \mu=\lambda/[P(X>k)]^{1/(k+1)}")
+            st.caption("As relações com Wq e ρ usam 0<ρ<1 e Wq>0. Na fórmula da cauda, X é o número no sistema.")
     if model == "M/G/1":
         with st.expander("Calcular μ a partir de λ, Lq e σ"):
             a, b, c = st.columns(3)
             lam = a.number_input(f"λ por {unit}", min_value=0.0, value=3.0, key="inv_lam")
             lq = b.number_input("Lq informado", min_value=0.0, value=2.0, key="inv_lq")
-            sigma = c.number_input(f"σ em {unit}", min_value=0.0, value=0.0, key="inv_sigma")
+            sigma = c.number_input(f"σ em {unit}", min_value=0.0, value=None, placeholder="Informe σ", key="inv_sigma")
+            if sigma is None:
+                st.caption("Informe σ. Use 0 se o serviço tiver duração constante.")
+                return
             try:
                 st.metric("μ para os dados informados", f"{inverse_mg1(lam, lq, sigma):.6g}/{unit}")
             except ValueError as exc:
@@ -94,6 +105,3 @@ def render_poisson(unit):
         st.metric("Probabilidade", f"{poisson_range(rate*duration, low, high):.8%}")
     except ValueError as exc:
         st.warning(str(exc))
-
-
-
