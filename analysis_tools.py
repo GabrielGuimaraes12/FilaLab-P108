@@ -98,3 +98,30 @@ def two_technician_occupancy(result):
     )
     p_both = state_range(result, 2)
     return p_both + result.probabilities[1] - p_only_second, p_both + p_only_second
+
+
+def finite_source_time_tail(result, time, total=False):
+    """P(T>t) em população finita, com servidor único e ordem de chegada."""
+    if result.model != "M/M/s/N" or result.servers != 1:
+        raise ValueError("Use população finita com um servidor.")
+    if not math.isfinite(time) or time < 0 or not result.effective_rate:
+        raise ValueError("Informe um prazo finito e não negativo e use uma taxa de chegada positiva.")
+
+    population = len(result.probabilities) - 1
+    mean = result.mu * time
+    if not math.isfinite(mean):
+        return 0.0
+
+    # Ao chegar e ver n clientes, o tempo envolve n serviços na fila, ou n+1
+    # contando o serviço próprio. A cauda Erlang é uma CDF de Poisson.
+    erlang_tail = 0.0
+    terms = []
+    for n, probability in enumerate(result.probabilities[:-1]):
+        k = n if total else n - 1
+        if k == 0:
+            erlang_tail = math.exp(-mean)
+        elif k > 0 and mean:
+            erlang_tail += math.exp(-mean + k*math.log(mean) - math.lgamma(k + 1))
+        arrival_mass = (population - n) * result.lam * probability / result.effective_rate
+        terms.append(arrival_mass * erlang_tail)
+    return min(1.0, math.fsum(terms))
