@@ -14,7 +14,7 @@ GUIDES = {
             r"P(W_q>t)=Ce^{-(s\mu-\lambda)t}\quad (t\ge0,\ \mathrm{FCFS})",
             r"s=1:\quad W=1/(\mu-\lambda),\quad \mu=\lambda+1/W,\quad \lambda=\rho^2/[(1-\rho)W_q]",
         ],
-        "Exemplo com λ=3/h, μ=4/h e s=1. ρ=0,75, P₀=0,25, Lq=2,25 e Wq=45 min. Para dimensionar s, teste inteiros a partir do primeiro que satisfaz sμ>λ.",
+        "Se o enunciado pede pessoas na fila, selecione “Somente na fila” na consulta de contagem. Para metas de espera, use a probabilidade de exceder um tempo. Para dimensionar a equipe, teste valores inteiros de s a partir do primeiro que satisfaz sμ>λ.",
     ),
     "M/M/s/K": (
         "Chegadas Poisson externas e sistema com K vagas totais. Se o enunciado dá somente as vagas de espera, some s. Equilíbrio possível também com λ≥sμ.",
@@ -25,7 +25,7 @@ GUIDES = {
             r"P(\mathrm{esperar}\mid\mathrm{admitido})=\frac{\sum_{n=s}^{K-1}P_n}{1-P_K}",
             r"\lambda=\lambda_{ef}/(1-P_K)\quad\text{se }P_K\text{ for conhecido}",
         ],
-        "Exemplo da pista com λ=15/h, μ=20/h, s=1 e três vagas de espera. K=4. Normalize os pesos 1; 0,75; 0,5625; 0,421875; 0,31640625. Some P₂+2P₃+3P₄ para obter Lq≈0,7721.",
+        "Identifique se a capacidade informada inclui quem está sendo atendido. Sistema ocupado significa n≥1, todos os servidores ocupados significa n≥s e sistema lotado significa n=K. A espera entre admitidos exclui as chegadas bloqueadas.",
     ),
     "M/M/s/N": (
         "Há N fontes. Cada fonte fora da fila e do atendimento gera demanda à taxa λ. O fluxo de chegadas depende do estado.",
@@ -35,7 +35,7 @@ GUIDES = {
             r"\lambda_{ef}=\lambda(N-L),\quad A=(N-L)/N,\quad \lambda=\lambda_{ef}/(N-L)",
             r"P_{\mathrm{chegada}}(n)=\lambda_nP_n/\lambda_{ef}",
         ],
-        "Exemplo com N=2, s=1, λ=1/h por fonte e μ=2/h. Os pesos são 1; 1; 0,5. As probabilidades são 0,4; 0,4; 0,2. L=0,8, taxa efetiva=1,2/h e a espera entre chegadas ocorre em 1/3 dos casos.",
+        "Converta o tempo médio de funcionamento para obter λ por fonte. Para custo de máquina parada, use o número médio no sistema L. A disponibilidade de uma máquina é (N−L)/N.",
     ),
     "M/G/1": (
         "Chegadas Poisson e um servidor com distribuição de serviço geral. Informe a média e a variância ou desvio-padrão. Exige λ<μ.",
@@ -45,7 +45,7 @@ GUIDES = {
             r"\rho=\sqrt{L_q^2+2L_q-(\lambda\sigma)^2}-L_q,\quad \mu=\lambda/\rho",
             r"\sigma=\frac{\sqrt{2L_q(1-\rho)-\rho^2}}{\lambda}",
         ],
-        "Exemplo dos caminhões com λ=3/h, atendimento médio de 15 min e σ=0 sob a hipótese de duração fixa. Lq=1,125 e Wq=22,5 min. Com serviço exponencial de mesma média, σ=0,25 h e Wq=45 min.",
+        "Confira se o enunciado informa a variabilidade do serviço. Use σ=0 apenas quando a duração for constante. Se o problema der Lq e λ, obtenha Wq pela Lei de Little. Para recuperar μ pela fórmula inversa, também é preciso conhecer σ.",
     ),
     "Prioridades M/M/1": (
         "Servidores idênticos, serviço exponencial com μ comum e chegadas Poisson por classe. A classe 1 tem maior prioridade. Exige Σλᵢ<sμ.",
@@ -55,7 +55,7 @@ GUIDES = {
             r"\mathrm{Com\ retomada}:\quad L_{q,i}=L_q(\Lambda_i)-L_q(\Lambda_{i-1}),\quad W_{q,i}=L_{q,i}/\lambda_i",
             r"W_i=W_{q,i}+1/\mu,\quad L_i=\lambda_iW_i,\quad L_{q,i}=\lambda_iW_{q,i}",
         ],
-        "Exemplo com λ₁=1/h, λ₂=2/h e μ=4/h. Com retomada, W₁=20 min e W₂=80 min. Sem interrupção, W₁=30 min e W₂=75 min. Com retomada, Wq inclui as interrupções e Λᵢ é a taxa acumulada até a classe i. Calcule Lq(Λᵢ) em M/M/s. Sem interrupção, C é Erlang C do fluxo total.",
+        "Identifique a ordem das classes e se o atendimento pode ser interrompido e retomado. Com retomada, Wq inclui interrupções e Λᵢ é a taxa acumulada até a classe i. Calcule Lq(Λᵢ) em M/M/s. Sem interrupção, C é Erlang C do fluxo total.",
     ),
 }
 
@@ -63,7 +63,7 @@ GUIDES = {
 def render_guide(unit):
     st.header("Guia manual")
     model = st.selectbox("Modelo da fórmula", list(GUIDES))
-    condition, formulas, example = GUIDES[model]
+    condition, formulas, tip = GUIDES[model]
     st.subheader("Quando usar")
     st.write(condition)
     st.subheader("Fórmulas")
@@ -72,8 +72,8 @@ def render_guide(unit):
     if model != "Prioridades M/M/1":
         st.latex(r"L=\lambda_{ef}W,\quad L_q=\lambda_{ef}W_q,\quad W=W_q+1/\mu")
         st.caption("Sem bloqueio ou população finita, λ efetiva = λ. Para inverter a Lei de Little, divida o número médio pelo tempo correspondente. Em M/G/1, a raiz inversa precisa ser real e resultar em 0<ρ<1.")
-    st.subheader("Exemplo resolvido")
-    st.write(example)
+    st.subheader("Como aplicar ao enunciado")
+    st.write(tip)
     if model == "M/G/1":
         with st.expander("Calcular μ a partir de λ, Lq e σ"):
             a, b, c = st.columns(3)
