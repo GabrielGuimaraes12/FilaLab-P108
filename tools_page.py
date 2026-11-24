@@ -5,7 +5,7 @@ from converters import (SECONDS, convert_time, convert_rate, convert_variance,
                         variance_from_sigma, parse_observations, observed_stats)
 
 UNITS = list(SECONDS)
-MODEL_NAMES = ["M/M/s", "M/M/s/K", "M/M/s/N", "M/G/1", "Prioridades M/M/1"]
+MODEL_NAMES = ["M/M/s", "M/M/s/K", "M/M/s/N", "M/G/1", "Prioridades M/M/s"]
 
 
 def fmt(value):
@@ -39,7 +39,7 @@ def send_widget(value, unit, kind, key):
     if kind == 'sigma':
         models = ['M/G/1']
     elif kind == 'lambda':
-        models = [x for x in MODEL_NAMES if x != 'Prioridades M/M/1']
+        models = [x for x in MODEL_NAMES if x != 'Prioridades M/M/s']
     else:
         models = MODEL_NAMES
     with st.expander('Enviar resultado a um modelo (opcional)', expanded=False):
